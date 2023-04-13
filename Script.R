@@ -47,7 +47,6 @@ if(sum(DF[3]>up)){
 ggplot(data=DF, aes(y=bmi))+geom_boxplot()
 
 #EDA for smoker
-boxplot(charges~smoker, data=DF)
 ggplot(data=DF, mapping = aes(x=smoker,y=charges,fill=smoker))+geom_boxplot()
 
 #Charges and children

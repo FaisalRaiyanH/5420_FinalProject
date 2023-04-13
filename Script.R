@@ -24,24 +24,24 @@ ggplot(data=DF, aes(y=bmi))+geom_boxplot()
 
 #handle the outliers
 # First Quantile:
-q1 = quantile(DF[,3])[2] 
+Q1 = quantile(DF[,3])[2] 
 # Third Quantile:
-q2 = quantile(DF[,3])[4]
+Q2 = quantile(DF[,3])[4]
 # Inner Quantile distance:
-iqr = q2-q1
+IQR = Q2-Q1
 
 # Lower bound Quantile Range:
-l = q1-1.5*iqr
+lo = Q1-1.5*IQR
 # Upper bound Quantile Range:
-u = q2+1.5*iqr
+up = Q2+1.5*IQR
 # Put outliers greater than upper quantile equal to upper quantile range:  
-if(sum(DF[3]>u)){
-  indexu <- which(DF[3]>u)
-  DF[[3]][indexu] = u
-} else if(sum(DF[3]<l)){ 
-  indexl <- which(DF[3]<l)
-  DF[[3]][indexl] = l}
-DF[,3]
+if(sum(DF[3]>up)){
+  indexu <- which(DF[3]>up)
+  DF[[3]][indexu] = up
+} else if(sum(DF[3]<lo)){ 
+  indexl <- which(DF[3]<lo)
+  DF[[3]][indexl] = lo}
+
 
 #Checking For outliers again
 ggplot(data=DF, aes(y=bmi))+geom_boxplot()

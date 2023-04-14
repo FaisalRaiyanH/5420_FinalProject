@@ -1,5 +1,7 @@
 library(ggplot2)
 library(cowplot)
+library(tidyverse)
+library(caret)
 
 DF = read.csv('./Data/insurance.csv')
 
@@ -64,4 +66,55 @@ ggplot(data=DF, mapping = aes(x=sex,y=charges,fill=smoker))+geom_boxplot()
 #Charges and BMI
 ggplot(data=DF, mapping = aes(x=bmi,y=charges))+geom_point()
 
-#Charges and BMI as range
+#Correlation plot
+
+
+
+
+## Models
+
+str(DF)
+
+#Linear Model
+set.seed(7)
+
+random_sample <- createDataPartition(DF$charges,
+                                     p=0.8,list=FALSE)
+train.set <- DF[random_sample,]
+test.set <- DF[-random_sample,]
+
+
+LinearM <- lm(charges ~.,data = train.set)
+summary(LinearM) #R2 0.75
+
+plot(LinearM)
+
+predictions <- predict(LinearM, test.set)
+data.frame(R2 = R2(predictions,test.set$charges),
+           RMSE = RMSE(predictions,test.set$charges))
+
+mean.charges = mean(DF[,7])
+RMSE = RMSE(predictions,test.set$charges)
+Error.rate = RMSE/mean.charges
+print(Error.rate)
+
+#10 fold cross validation and check the predictions with testset
+
+train_control = trainControl(method="cv",number=10)
+lm.cv <- train(charges~.,data=train.set,
+               method="lm",
+               trControl=train_control)
+print(lm.cv)
+
+
+predictions2 <- predict(lm.cv, test.set)
+data.frame(R2 = R2(predictions2,test.set$charges),
+           RMSE = RMSE(predictions2,test.set$charges))
+
+
+### Pick up, figure out if you need to change the cat to as.factor and decide what to do with the diagnostic plot of LM 
+### how to check the assumptions of lasso and ridge.
+
+#Step model
+
+

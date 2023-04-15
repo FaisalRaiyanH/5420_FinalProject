@@ -227,7 +227,7 @@ str(DF)
 unique(DF$region)
 #Train NN
 nn <- neuralnet(charges~age+sexmale+bmi+children+smokeryes+regionnorthwest+regionsoutheast+regionsouthwest,
-                data=train1,hidden = c(10,10),
+                data=train1,hidden = c(6),
                 linear.output = TRUE, threshold = 0.02,stepmax = 100000)
 
 plot(nn)

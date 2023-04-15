@@ -1,3 +1,12 @@
+---
+title: "Appendix"
+author: "Faisal"
+date: "2023-04-15"
+output: word_document
+---
+
+```{r eval=FALSE,warning=FALSE,message=FALSE}
+
 library(ggplot2)
 library(cowplot)
 library(tidyverse)
@@ -7,7 +16,10 @@ library(tidyverse)
 library(glmnet)
 library(neuralnet)
 library(MASS)
+```
 
+## CODE BLOCK A
+```{r eval=FALSE,warning=FALSE,message=FALSE,tidy=TRUE}
 DF = read.csv('./Data/insurance.csv')
 
 #### Observe dataset and handle missing values ####
@@ -56,7 +68,11 @@ ggplot(data=DF, aes(y=bmi))+geom_boxplot()
 
 #### ####
 
-#### EDA of the dataset ####
+```
+
+## CODE BLOCK B
+```{r eval=FALSE,warning=FALSE,message=FALSE,tidy=TRUE}
+#### EDA of the dataset and Scaling ####
 #EDA for smoker
 ggplot(data=DF, mapping = aes(x=smoker,y=charges,fill=smoker))+geom_boxplot()
 
@@ -77,19 +93,23 @@ ggplot(data=DF, mapping = aes(x=bmi,y=charges,color=bmi))+geom_point(size=5)
 
 #### ####
 
-##Models
-
-##Scale the numeric variables 
+##Scale the numeric variables ####
 SDF <- DF
 SDF$age <- (DF$age - mean(DF$age) ) / sd(DF$age)
 SDF$bmi <- (DF$bmi - mean(DF$bmi) ) / sd(DF$bmi)
 SDF$children <- (DF$children - mean(DF$children) ) / sd(DF$children)
 SDF$charges <- (DF$charges - mean(DF$charges) ) / sd(DF$charges)
 
-max(DF[,7])
-min(DF[,7])
-mean(DF[,7])
+##Check for right scaling
+max(SDF[,7])
+min(SDF[,7])
+mean(SDF[,7])
+#### ####
+```
 
+
+## CODE BLOCK C
+```{r eval=FALSE,warning=FALSE,message=FALSE,tidy=TRUE}
 #### Linear Model ####
 set.seed(7)
 
@@ -100,7 +120,7 @@ test.set <- SDF[-random_sample,]
 
 
 LinearM <- lm(charges ~.,data = train.set)
-summary(LinearM) #R2 0.75
+summary(LinearM)
 
 
 plot(LinearM)
@@ -111,25 +131,9 @@ test.a = (test.set$charges*sd(DF[,7])+mean(DF[,7]))
 data.frame(R2 = R2(predictions,test.set$charges),
            RMSE = RMSE(predictiona,test.a))
 
-#### ####
-
-
-#### 10 fold cross validation and check the predictions with testset ####
-
-train_control = trainControl(method="cv",number=10)
-lm.cv <- train(charges~.,data=train.set,
-               method="lm",
-               trControl=train_control)
-print(lm.cv)
-
-
-predictions2 <- predict(lm.cv, test.set)
-
-data.frame(R2 = R2(predictions2,test.set$charges),
-           RMSE = RMSE(predictions2,test.set$charges))
-
-#### ####
-
+```
+## CODE BLOCK D
+```{r eval=FALSE,warning=FALSE,message=FALSE,tidy=TRUE}
 ## Step model ####
 
 step.model = train(charges~.,data=train.set,
@@ -148,8 +152,9 @@ test.a = (test.set$charges*sd(DF[,7])+mean(DF[,7]))
 data.frame(R2 = R2(predictiona,test.set$charges),
            RMSE = RMSE(predictiona,test.b))
 
-## ####
-
+```
+## CODE BLOCK E
+```{r eval=FALSE,warning=FALSE,message=FALSE,tidy=TRUE}
 ## Ridge ####
 set.seed(7)
 
@@ -174,8 +179,9 @@ data.frame(
   RMSE = RMSE(predictionsd,test.a)
 )
 
-## ####
-
+```
+## CODE BLOCK F
+```{r eval=FALSE,warning=FALSE,message=FALSE,tidy=TRUE}
 ## Lasso ####
 set.seed(7)
 cv <- cv.glmnet(x,y,alpha=1)
@@ -196,6 +202,9 @@ data.frame(
 
 ## ####
 
+```
+## CODE BLOCK G
+```{r eval=FALSE,warning=FALSE,message=FALSE,tidy=TRUE}
 ## ElasticNet ####
 set.seed(7)
 cv <- cv.glmnet(x,y,alpha=0.5)
@@ -216,6 +225,9 @@ data.frame(
 
 ## ####
 
+```
+## CODE BLOCK H
+```{r eval=FALSE,warning=FALSE,message=FALSE,tidy=TRUE}
 ## Neural Network ####
 dataset1 <- model.matrix(
   ~age+sex+bmi+children+smoker+region+charges,
@@ -253,3 +265,5 @@ RMSE <- sqrt(MSE.nn)
 print(RMSE)
 
 ## ####
+
+```

@@ -2,6 +2,11 @@ library(ggplot2)
 library(cowplot)
 library(tidyverse)
 library(caret)
+library(dplyr)
+library(tidyverse)
+library(glmnet)
+library(neuralnet)
+library(MASS)
 
 DF = read.csv('./Data/insurance.csv')
 
@@ -73,15 +78,27 @@ ggplot(data=DF, mapping = aes(x=bmi,y=charges))+geom_point()
 
 ## Models
 
-str(DF)
+##Scale the numeric variables 
+
+# SDF <- DF %>% mutate_at(c(1,3,4,7), ~(scale(.,scale = TRUE, cen )%>% as.vector))
+mean(SDF[,3])
+mean(SDF[,1])
+sd(SDF[,3])
+sd(SDF[,1])
+sd(SDF[,7])
+SDF <- DF
+SDF$age <- (DF$age - mean(DF$age) ) / sd(DF$age)
+SDF$bmi <- (DF$bmi - mean(DF$bmi) ) / sd(DF$bmi)
+SDF$children <- (DF$children - mean(DF$children) ) / sd(DF$children)
+SDF$charges <- (DF$charges - mean(DF$charges) ) / sd(DF$charges)
 
 #Linear Model
 set.seed(7)
 
-random_sample <- createDataPartition(DF$charges,
+random_sample <- createDataPartition(SDF$charges,
                                      p=0.8,list=FALSE)
-train.set <- DF[random_sample,]
-test.set <- DF[-random_sample,]
+train.set <- SDF[random_sample,]
+test.set <- SDF[-random_sample,]
 
 
 LinearM <- lm(charges ~.,data = train.set)
@@ -93,7 +110,7 @@ predictions <- predict(LinearM, test.set)
 data.frame(R2 = R2(predictions,test.set$charges),
            RMSE = RMSE(predictions,test.set$charges))
 
-mean.charges = mean(DF[,7])
+mean.charges = mean(SDF[,7])
 RMSE = RMSE(predictions,test.set$charges)
 Error.rate = RMSE/mean.charges
 print(Error.rate)
@@ -111,10 +128,123 @@ predictions2 <- predict(lm.cv, test.set)
 data.frame(R2 = R2(predictions2,test.set$charges),
            RMSE = RMSE(predictions2,test.set$charges))
 
-
-### Pick up, figure out if you need to change the cat to as.factor and decide what to do with the diagnostic plot of LM 
-### how to check the assumptions of lasso and ridge.
-
 #Step model
+#Can it be done with categorical data?
+
+step.model = train(charges~.,data=train.set,
+                   method="leapBackward",
+                   tuneGrid=data.frame(nvmax=1:6),
+                   trControl=train_control)
+
+step.model$results
+step.model$bestTune
+
+summary(step.model$finalModel)
+
+predictions3 = predict(step.model,test.set)
+data.frame(R2=R2(predictions3,test.set$charges),
+           RMSE=RMSE(predictions3,test.set$charges))
+
+#Run the lm again with the significant variables and use dummy.
+
+# how to check the assumptions of lasso and ridge.
+
+#Ridge
+set.seed(7)
+
+x <- model.matrix(charges~.,train.set)[,-1]
+y <- train.set$charges
+
+#Best lambda using cv
+cv <- cv.glmnet(x,y,alpha = 0)
+cv$lambda.min
+
+#Fit the final model on the train set
+ridge <- glmnet(x=as.data.frame(x),y,alpha = 0,lambda = cv$lambda.min)
+coef(ridge)
+
+#Make predictions on test set
+x.test <- model.matrix(charges~.,test.set)[,-1]
+predictions3 <- ridge %>% predict(x.test) %>% as.vector()
+data.frame(
+  R2=R2(predictions3,test.set$charges),
+  RMSE=RMSE(predictions3,test.set$charges)
+  )
+
+
+#Lasso
+set.seed(7)
+cv <- cv.glmnet(x,y,alpha=1)
+cv$lambda.min
+
+lasso <- glmnet(x,y,alpha=1,lambda=cv$lambda.min)
+coef(lasso)
+plot(cv)
+#Make predictions on the test data
+x.test <- model.matrix(charges~.,test.set)[,-1]
+predictions4 <- lasso %>% predict(x.test) %>% as.vector()
+data.frame(
+  R2=R2(predictions4,test.set$charges),
+  RMSE = RMSE(predictions4,test.set$charges)
+)
+
+#ElasticNet 
+set.seed(7)
+cv <- cv.glmnet(x,y,alpha=0.5)
+cv$lambda.min
+
+elastic <- glmnet(x,y,alpha=0.5,lambda=cv$lambda.min)
+coef(elastic)
+
+#Make predictions on the test data
+x.test <- model.matrix(charges~.,test.set)[,-1]
+predictions5 <- elastic %>% predict(x.test) %>% as.vector()
+data.frame(
+  R2=R2(predictions4,test.set$charges),
+  RMSE = RMSE(predictions4,test.set$charges)
+)
+
+#Neural Network
+dataset1 <- model.matrix(
+  ~age+sex+bmi+children+smoker+region+charges,
+  data=DF
+)
+dataset <- model.matrix(
+  ~age+sex+bmi+children+smoker+region+charges,
+  data=SDF
+)
+
+train1 <- model.matrix(
+  ~age+sex+bmi+children+smoker+region+charges,
+  data=train.set
+)
+test1 <-model.matrix(
+  ~age+sex+bmi+children+smoker+region+charges,
+  data=test.set
+)
+View(train1)
+str(DF)
+unique(DF$region)
+#Train NN
+nn <- neuralnet(charges~age+sexmale+bmi+children+smokeryes+regionnorthwest+regionsoutheast+regionsouthwest,
+                data=train1,hidden = c(10,10),
+                linear.output = TRUE, threshold = 0.02,stepmax = 100000)
+
+plot(nn)
+#predict on test data
+predict.nn <- compute(nn,test1[,-10])
+
+#Caculate MSE
+predict.nn2 <- predict.nn$net.result * sd(dataset1[,10]) +mean(dataset1[,10])
+# predict.nn2 <- predict.nn$net.result * (max(dataset1[,10])-min(dataset1[,10])) +min(dataset[,10])
+test.r <- (test1[,10])* sd(dataset1[,10]) +mean(dataset1[,10])
+MSE.nn <- sum((test.r - predict.nn2)^2)/nrow(test1)
+print(MSE.nn)
+RMSE <- sqrt(MSE.nn)
+print(RMSE)
+
+
+
+
 
 

@@ -10,26 +10,27 @@ library(MASS)
 
 DF = read.csv('./Data/insurance.csv')
 
-#EDA of the dataset
-#Plan so far 
+#### Observe dataset and handle missing values ####
 
-str(DF)
+str(DF) 
 plot(DF)
 
 #check for missing values
 sum(is.na(DF))
 
-#Fix the outliers first
+#Check the outliers first
 p1 <- ggplot(data=DF,aes(x=age))+geom_histogram()
 p2 <- ggplot(data=DF, aes(x=bmi))+geom_histogram()
 p3 <- ggplot(data=DF, aes(x=children))+geom_histogram()
-p <- plot_grid(p1,p2,p3, ncol=2)
+p <- plot_grid(p1,p2,p3, ncol=2, labels="auto")
 p
+
+
 
 #boxplot of bmi
 ggplot(data=DF, aes(y=bmi))+geom_boxplot()
 
-#handle the outliers
+#handle the outliers of bmi
 # First Quantile:
 Q1 = quantile(DF[,3])[2] 
 # Third Quantile:
@@ -50,14 +51,17 @@ if(sum(DF[3]>up)){
   DF[[3]][indexl] = lo}
 
 
-#Checking For outliers again
+#Checking BMI outlier again
 ggplot(data=DF, aes(y=bmi))+geom_boxplot()
 
+#### ####
+
+#### EDA of the dataset ####
 #EDA for smoker
 ggplot(data=DF, mapping = aes(x=smoker,y=charges,fill=smoker))+geom_boxplot()
 
 #Charges and children
-ggplot(data=DF, mapping = aes(x=as.factor(children), y=charges))+geom_boxplot()
+ggplot(data=DF, mapping = aes(x=as.factor(children), y=charges,))+geom_boxplot()
 
 #Charges and sex
 ggplot(data=DF, mapping = aes(x=sex,y=charges,fill=sex))+geom_boxplot()
@@ -69,30 +73,24 @@ ggplot(data=DF, mapping = aes(x=region,y=charges))+geom_boxplot()
 ggplot(data=DF, mapping = aes(x=sex,y=charges,fill=smoker))+geom_boxplot()
 
 #Charges and BMI
-ggplot(data=DF, mapping = aes(x=bmi,y=charges))+geom_point()
+ggplot(data=DF, mapping = aes(x=bmi,y=charges,color=bmi))+geom_point(size=5)
 
-#Correlation plot
+#### ####
 
-
-
-
-## Models
+##Models
 
 ##Scale the numeric variables 
-
-# SDF <- DF %>% mutate_at(c(1,3,4,7), ~(scale(.,scale = TRUE, cen )%>% as.vector))
-mean(SDF[,3])
-mean(SDF[,1])
-sd(SDF[,3])
-sd(SDF[,1])
-sd(SDF[,7])
 SDF <- DF
 SDF$age <- (DF$age - mean(DF$age) ) / sd(DF$age)
 SDF$bmi <- (DF$bmi - mean(DF$bmi) ) / sd(DF$bmi)
 SDF$children <- (DF$children - mean(DF$children) ) / sd(DF$children)
 SDF$charges <- (DF$charges - mean(DF$charges) ) / sd(DF$charges)
 
-#Linear Model
+max(DF[,7])
+min(DF[,7])
+mean(DF[,7])
+
+#### Linear Model ####
 set.seed(7)
 
 random_sample <- createDataPartition(SDF$charges,
@@ -104,18 +102,19 @@ test.set <- SDF[-random_sample,]
 LinearM <- lm(charges ~.,data = train.set)
 summary(LinearM) #R2 0.75
 
+
 plot(LinearM)
 
 predictions <- predict(LinearM, test.set)
+predictiona = (predictions*sd(DF[,7])+mean(DF[,7]))
+test.a = (test.set$charges*sd(DF[,7])+mean(DF[,7]))
 data.frame(R2 = R2(predictions,test.set$charges),
-           RMSE = RMSE(predictions,test.set$charges))
+           RMSE = RMSE(predictiona,test.a))
 
-mean.charges = mean(SDF[,7])
-RMSE = RMSE(predictions,test.set$charges)
-Error.rate = RMSE/mean.charges
-print(Error.rate)
+#### ####
 
-#10 fold cross validation and check the predictions with testset
+
+#### 10 fold cross validation and check the predictions with testset ####
 
 train_control = trainControl(method="cv",number=10)
 lm.cv <- train(charges~.,data=train.set,
@@ -125,11 +124,13 @@ print(lm.cv)
 
 
 predictions2 <- predict(lm.cv, test.set)
+
 data.frame(R2 = R2(predictions2,test.set$charges),
            RMSE = RMSE(predictions2,test.set$charges))
 
-#Step model
-#Can it be done with categorical data?
+#### ####
+
+## Step model ####
 
 step.model = train(charges~.,data=train.set,
                    method="leapBackward",
@@ -141,15 +142,15 @@ step.model$bestTune
 
 summary(step.model$finalModel)
 
-predictions3 = predict(step.model,test.set)
-data.frame(R2=R2(predictions3,test.set$charges),
-           RMSE=RMSE(predictions3,test.set$charges))
+predictions = predict(step.model,test.set)
+predictiona = (predictions*sd(DF[,7])+mean(DF[,7]))
+test.a = (test.set$charges*sd(DF[,7])+mean(DF[,7]))
+data.frame(R2 = R2(predictiona,test.set$charges),
+           RMSE = RMSE(predictiona,test.b))
 
-#Run the lm again with the significant variables and use dummy.
+## ####
 
-# how to check the assumptions of lasso and ridge.
-
-#Ridge
+## Ridge ####
 set.seed(7)
 
 x <- model.matrix(charges~.,train.set)[,-1]
@@ -165,14 +166,17 @@ coef(ridge)
 
 #Make predictions on test set
 x.test <- model.matrix(charges~.,test.set)[,-1]
-predictions3 <- ridge %>% predict(x.test) %>% as.vector()
+predictions <- ridge %>% predict(x.test) %>% as.vector()
+predictionsa <- (predictions*sd(DF[,7])+mean(DF[,7]))
+test.a = (test.set$charges*sd(DF[,7])+mean(DF[,7]))
 data.frame(
-  R2=R2(predictions3,test.set$charges),
-  RMSE=RMSE(predictions3,test.set$charges)
-  )
+  R2 = R2(predictionsa,test.set$charges),
+  RMSE = RMSE(predictionsd,test.a)
+)
 
+## ####
 
-#Lasso
+## Lasso ####
 set.seed(7)
 cv <- cv.glmnet(x,y,alpha=1)
 cv$lambda.min
@@ -182,13 +186,17 @@ coef(lasso)
 plot(cv)
 #Make predictions on the test data
 x.test <- model.matrix(charges~.,test.set)[,-1]
-predictions4 <- lasso %>% predict(x.test) %>% as.vector()
+predictions <- lasso %>% predict(x.test) %>% as.vector()
+predictionsa <- (predictions*sd(DF[,7])+mean(DF[,7]))
+test.a = (test.set$charges*sd(DF[,7])+mean(DF[,7]))
 data.frame(
-  R2=R2(predictions4,test.set$charges),
-  RMSE = RMSE(predictions4,test.set$charges)
+  R2 = R2(predictionsa,test.set$charges),
+  RMSE = RMSE(predictionsd,test.a)
 )
 
-#ElasticNet 
+## ####
+
+## ElasticNet ####
 set.seed(7)
 cv <- cv.glmnet(x,y,alpha=0.5)
 cv$lambda.min
@@ -198,11 +206,15 @@ coef(elastic)
 
 #Make predictions on the test data
 x.test <- model.matrix(charges~.,test.set)[,-1]
-predictions5 <- elastic %>% predict(x.test) %>% as.vector()
+predictions <- elastic %>% predict(x.test) %>% as.vector()
+predictionsa <- (predictions*sd(DF[,7])+mean(DF[,7]))
+test.a = (test.set$charges*sd(DF[,7])+mean(DF[,7]))
 data.frame(
-  R2=R2(predictions4,test.set$charges),
-  RMSE = RMSE(predictions4,test.set$charges)
+  R2 = R2(predictionsa,test.set$charges),
+  RMSE = RMSE(predictionsd,test.a)
 )
+
+## ####
 
 #Neural Network
 dataset1 <- model.matrix(
@@ -222,9 +234,7 @@ test1 <-model.matrix(
   ~age+sex+bmi+children+smoker+region+charges,
   data=test.set
 )
-View(train1)
-str(DF)
-unique(DF$region)
+
 #Train NN
 nn <- neuralnet(charges~age+sexmale+bmi+children+smokeryes+regionnorthwest+regionsoutheast+regionsouthwest,
                 data=train1,hidden = c(6),
@@ -236,15 +246,10 @@ predict.nn <- compute(nn,test1[,-10])
 
 #Caculate MSE
 predict.nn2 <- predict.nn$net.result * sd(dataset1[,10]) +mean(dataset1[,10])
-# predict.nn2 <- predict.nn$net.result * (max(dataset1[,10])-min(dataset1[,10])) +min(dataset[,10])
 test.r <- (test1[,10])* sd(dataset1[,10]) +mean(dataset1[,10])
 MSE.nn <- sum((test.r - predict.nn2)^2)/nrow(test1)
 print(MSE.nn)
 RMSE <- sqrt(MSE.nn)
 print(RMSE)
 
-
-
-
-
-
+## ####
